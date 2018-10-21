@@ -8,8 +8,10 @@ Build the program and flash it as usual to the digispark.
 
 ```bash
 $ make clean && make
-$ micronucleus keyboard.hex
+$ make upload
 ```
+
+You can reboot the device for reflash by turning on the caps lock indicator more than five times.
 
 After the program loads, you should see a new USB device:
 

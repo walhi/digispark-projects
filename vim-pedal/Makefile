@@ -3,6 +3,8 @@ PROJECT = keyboard
 CC = avr-gcc
 OBJCOPY = avr-objcopy
 
+VPATH += ../
+
 CFLAGS = -Wall -Os -Iusbdrv -mmcu=attiny85 -DF_CPU=16500000 -I../
 OBJFLAGS = -j .text -j .data -O ihex
 
@@ -29,3 +31,6 @@ $(OBJECTS): usbdrv/usbconfig.h
 
 upload: $(PROJECT).hex
 	micronucleus $(PROJECT).hex
+
+test:
+	cat $(VPATH)
