@@ -2,6 +2,11 @@
 
 A USB VIM Pedal keyboard example. Pressing a button generates a keystroke "i", releasing generates a keystroke "ESC".
 
+## Hardware
+
+A 10 kΩ resistor between PB2 pin and VCC is required. Button (normally open) connects to pin PB2 and GND.
+
+
 ## Usage
 
 Build the program and flash it as usual to the digispark.
