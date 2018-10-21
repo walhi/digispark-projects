@@ -1,12 +1,14 @@
+PROJECT = keyboard
+
 CC = avr-gcc
 OBJCOPY = avr-objcopy
 
 CFLAGS = -Wall -Os -Iusbdrv -mmcu=attiny85 -DF_CPU=16500000
 OBJFLAGS = -j .text -j .data -O ihex
 
-OBJECTS = usbdrv/usbdrv.o usbdrv/oddebug.o usbdrv/usbdrvasm.o keyboard.o
+OBJECTS = usbdrv/usbdrv.o usbdrv/oddebug.o usbdrv/usbdrvasm.o $(PROJECT).o
 
-all: keyboard.hex
+all: $(PROJECT).hex
 
 clean:
 	$(RM) *.o *.hex *.elf usbdrv/*.o
@@ -14,13 +16,16 @@ clean:
 %.hex: %.elf
 	$(OBJCOPY) $(OBJFLAGS) $< $@
 
-keyboard.elf: $(OBJECTS)
+$(PROJECT).elf: $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $@
 
 $(OBJECTS): usbdrv/usbconfig.h
 
-%.o: %.c
+%.o: %.c Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.S
+%.o: %.S Makefile
 	$(CC) $(CFLAGS) -x assembler-with-cpp -c $< -o $@
+
+upload: $(PROJECT).hex
+	micronucleus $(PROJECT).hex
