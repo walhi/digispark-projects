@@ -131,9 +131,11 @@ void buildReportChar(uchar letter) {
 	if (letter >= 'A' && letter <= 'Z'){
 		if (!state_caps) modifier = KEY_MOD_LSHIFT;
 		letter -= 'A' - 'a';
+	} else {
+		if (state_caps) modifier = KEY_MOD_LSHIFT;
 	}
-	keyboard_report.modifier = modifier;
 
+	keyboard_report.modifier = modifier;
 	if (letter >= 'a' && letter <= 'z'){
 		keyboard_report.keycode[0] = 4+(letter-'a');
 	} else {
@@ -148,7 +150,7 @@ void buildReportChar(uchar letter) {
 
 int main() {
 	uchar i;
-	uchar state = STATE_SEND_KEY;
+	uchar state = STATE_WAIT;
 
 	for(i=0; i<sizeof(keyboard_report); i++) ((uchar *)&keyboard_report)[i] = 0;
 
@@ -175,13 +177,15 @@ int main() {
 			case STATE_SEND_KEY:
 				count_caps = 0; // clear reboot counter
 				//buildReport(KEY_X, KEY_MOD_LCTRL);
-				buildReportChar('A');
+				buildReportChar('a');
 				state = STATE_RELEASE_WAIT;
 				break;
 			case STATE_RELEASE_WAIT:
 				if (PINB & (1 << KEY_PIN)){
 					state = STATE_RELEASE_KEY;
-				}
+				} /*else {
+					continue;
+					}*/
 				break;
 			case STATE_RELEASE_KEY:
 				buildReport(KEY_NONE, KEY_NONE);
@@ -191,6 +195,8 @@ int main() {
 				state = STATE_WAIT;
 				if (!(PINB & (1 << KEY_PIN))){
 					state = STATE_SEND_KEY;
+				} else {
+					continue;
 				}
 			}
 			usbSetInterrupt((void *)&keyboard_report, sizeof(keyboard_report));
