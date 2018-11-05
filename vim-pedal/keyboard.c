@@ -60,7 +60,7 @@ PROGMEM const char usbHidReportDescriptor[USB_CFG_HID_REPORT_DESCRIPTOR_LENGTH] 
 typedef struct {
 	uint8_t modifier;
 	uint8_t reserved;
-	uint8_t keycode[1];
+	uint8_t keycode[6];
 } keyboard_report_t;
 
 static keyboard_report_t keyboard_report; // sent to PC
