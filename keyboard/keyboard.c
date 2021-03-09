@@ -15,6 +15,7 @@
 
 #include "usbdrv.h"
 #include "usb_hid_keys.h"
+#include "signals.h"
 
 // ************************
 // *** USB HID ROUTINES ***
@@ -63,13 +64,12 @@ typedef struct {
 	uint8_t keycode[6];
 } keyboard_report_t;
 
-static keyboard_report_t keyboard_report; // sent to PC
+static keyboard_report_t keyboard_report __attribute__ ((section (".noinit"))); // sent to PC
 volatile static uchar LED_state = 0xff; // received from PC
 static uchar state_caps = 0x0;
 static uchar count_caps = 0x0; // for reboot
 static uchar idleRate; // repeat rate for keyboards
 
-#define KEY_PIN PB2
 
 usbMsgLen_t usbFunctionSetup(uchar data[8]) {
 	usbRequest_t *rq = (void *)data;
@@ -127,36 +127,98 @@ void buildReport(uchar keycode, uchar modifier) {
 // Only letters and 0 (NULL) to clear buttons. The function displays the character in the desired register, regardless of the status caps_lock
 void buildReportChar(uchar letter) {
 	uchar modifier = KEY_NONE;
+	if (letter >= 'A'){
+		// Буквы
+		if (letter >= 'A' && letter <= 'Z'){
+			if (!state_caps) modifier = KEY_MOD_LSHIFT;
+			letter -= 'A' - 'a';
+		} else {
+			if (state_caps) modifier = KEY_MOD_LSHIFT;
+		}
 
-	if (letter >= 'A' && letter <= 'Z'){
-		if (!state_caps) modifier = KEY_MOD_LSHIFT;
-		letter -= 'A' - 'a';
+		if (letter >= 'a' && letter <= 'z'){
+			keyboard_report.keycode[0] = 4 + (letter - 'a');
+		} else {
+			keyboard_report.keycode[0] = 0;
+		}
+	} else if (letter >= '0' && letter <= '9'){
+		// Цифры
+		if (letter == '0'){
+			keyboard_report.keycode[0] = 0x27;
+		} else {
+			keyboard_report.keycode[0] = 0x1d + (letter - '0');
+		}
 	} else {
-		if (state_caps) modifier = KEY_MOD_LSHIFT;
+		// символы
+		modifier = KEY_MOD_LSHIFT;
+		switch(letter){
+		case '!':
+			keyboard_report.keycode[0] = 0x1d + 1;
+			break;
+		case '@':
+			keyboard_report.keycode[0] = 0x1d + 2;
+			break;
+		case '#':
+			keyboard_report.keycode[0] = 0x1d + 3;
+			break;
+		case '$':
+			keyboard_report.keycode[0] = 0x1d + 4;
+			break;
+		case '%':
+			keyboard_report.keycode[0] = 0x1d + 5;
+			break;
+		case '^':
+			keyboard_report.keycode[0] = 0x1d + 6;
+			break;
+		case '&':
+			keyboard_report.keycode[0] = 0x1d + 7;
+			break;
+		case '*':
+			keyboard_report.keycode[0] = 0x1d + 8;
+			break;
+		case '(':
+			keyboard_report.keycode[0] = 0x1d + 9;
+			break;
+		case ')':
+			keyboard_report.keycode[0] = 0x27;
+			break;
+		case ':':
+			keyboard_report.keycode[0] = 0x33;
+			break;
+		case ';':
+			modifier = KEY_NONE;
+			keyboard_report.keycode[0] = 0x33;
+			break;
+		}
 	}
-
 	keyboard_report.modifier = modifier;
-	if (letter >= 'a' && letter <= 'z'){
-		keyboard_report.keycode[0] = 4+(letter-'a');
-	} else {
-		keyboard_report.keycode[0] = 0;
-	}
 }
+
+void buildReportChar2(uchar letter) {
+	uchar modifier = KEY_NONE;
+
+}
+
 
 #define STATE_WAIT 0
 #define STATE_SEND_KEY 1
-#define STATE_RELEASE_WAIT 2
-#define STATE_RELEASE_KEY 3
+#define STATE_SEND_RELEASE 2
+#define STATE_RELEASE_WAIT 3
+
+char msg[] = "keyboard test";
 
 int main() {
 	uchar i;
 	uchar state = STATE_WAIT;
+	char* ptr = msg;
 
 	for(i=0; i<sizeof(keyboard_report); i++) ((uchar *)&keyboard_report)[i] = 0;
 
 	wdt_enable(WDTO_1S); // enable 1s watchdog timer
-	DDRB |= _BV(DDB1);
-	PORTB |= _BV(KEY_PIN);
+
+	KEY_PORT_REG |= KEY_PIN; // pull up
+	LED_DDR_REG |= LED_PIN;
+
 	usbInit();
 
 	usbDeviceDisconnect(); // enforce re-enumeration
@@ -175,25 +237,32 @@ int main() {
 		if (usbInterruptIsReady() && LED_state != 0xff) {
 			switch(state) {
 			case STATE_SEND_KEY:
-				count_caps = 0; // clear reboot counter
-				//buildReport(KEY_X, KEY_MOD_LCTRL);
-				buildReportChar('a');
-				state = STATE_RELEASE_WAIT;
+				if (*ptr != 0){
+					buildReportChar(*ptr);
+				}
+				state = STATE_SEND_RELEASE;
+				break;
+			case STATE_SEND_RELEASE:
+				buildReport(KEY_NONE, KEY_NONE);
+				ptr++;
+				if (*ptr == 0){
+					ptr = msg;
+					state = STATE_RELEASE_WAIT;
+				} else {
+					state = STATE_SEND_KEY;
+				}
 				break;
 			case STATE_RELEASE_WAIT:
-				if (PINB & (1 << KEY_PIN)){
-					state = STATE_RELEASE_KEY;
-				} /*else {
+				if (KEY_PIN_REG & KEY_PIN){
+					state = STATE_WAIT;
+				} /*else {0koT60
 					continue;
 					}*/
 				break;
-			case STATE_RELEASE_KEY:
-				buildReport(KEY_NONE, KEY_NONE);
-				state = STATE_WAIT;
-				break;
 			default:
 				state = STATE_WAIT;
-				if (!(PINB & (1 << KEY_PIN))){
+				if ((KEY_PIN_REG & KEY_PIN) == 0){
+					count_caps = 0; // clear reboot counter
 					state = STATE_SEND_KEY;
 				} else {
 					continue;

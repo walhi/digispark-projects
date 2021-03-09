@@ -15,6 +15,7 @@
 
 #include "usbdrv.h"
 #include "usb_hid_keys.h"
+#include "signals.h"
 
 // ************************
 // *** USB HID ROUTINES ***
@@ -68,11 +69,6 @@ volatile static uchar LED_state = 0xff; // received from PC
 static uchar state_caps = 0x0;
 static uchar count_caps = 0x0; // for reboot
 static uchar idleRate; // repeat rate for keyboards
-
-#define KEY_DDR_REG      DDRB
-#define KEY_PIN_REG      PINB
-#define KEY_PORT_REG     PORTB
-#define KEY_PIN PB2
 
 usbMsgLen_t usbFunctionSetup(uchar data[8]) {
 	usbRequest_t *rq = (void *)data;
@@ -150,8 +146,10 @@ int main() {
 	for(i=0; i<sizeof(keyboard_report); i++) ((uchar *)&keyboard_report)[i] = 0;
 
 	wdt_enable(WDTO_1S); // enable 1s watchdog timer
-	DDRB |= _BV(DDB1);
-	KEY_PORT_REG |= _BV(KEY_PIN);
+
+	KEY_PORT_REG |= KEY_PIN; // pull up
+	LED_DDR_REG |= LED_PIN;
+
 	usbInit();
 
 	usbDeviceDisconnect(); // enforce re-enumeration
@@ -161,14 +159,14 @@ int main() {
 
 	sei(); // Enable interrupts after re-enumeration
 
-	key = lastKey = KEY_PIN_REG & (1 << KEY_PIN);
+	key = lastKey = KEY_PIN_REG & KEY_PIN;
 	while (1) {
 		wdt_reset();
 		usbPoll();
 
 		if (count_caps >= 5) do {} while (1);
 
-		key = KEY_PIN_REG & (1 << KEY_PIN);
+		key = KEY_PIN_REG & KEY_PIN;
 
 		if((key != lastKey) && usbInterruptIsReady() && LED_state != 0xff){
 			lastKey = key;
